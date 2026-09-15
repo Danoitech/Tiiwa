@@ -1,10 +1,10 @@
+import { alertBiometricFailure, biometricLabel, getBiometricKind, promptBiometrics } from '@/auth/biometrics';
 import { useAuth } from '@/auth/AuthProvider';
 import { sendOtp } from '@/auth/otp';
-import { isBiometricsEnabled, verifyPin } from '@/auth/pin';
+import { isBiometricsEnabled, setBiometricsEnabled, verifyPin } from '@/auth/pin';
 import { PinPad } from '@/components/PinPad';
 import { Screen } from '@/components/ui';
 import { colors } from '@/theme/colors';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
@@ -15,20 +15,30 @@ export default function UnlockScreen() {
   const { unlock, email } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [fails, setFails] = useState(0);
-  const [bioReady, setBioReady] = useState(false);
   const [recovering, setRecovering] = useState(false);
+  const [bioLabel, setBioLabel] = useState('Face ID');
   const lockedOut = fails >= 5;
 
   useEffect(() => {
+    let cancelled = false;
+
     (async () => {
+      const kind = await getBiometricKind();
+      if (!cancelled) setBioLabel(biometricLabel(kind));
+
       if (!(await isBiometricsEnabled())) return;
-      setBioReady(true);
-      const result = await LocalAuthentication.authenticateAsync({
-        promptMessage: 'Unlock Tiiwa',
-        disableDeviceFallback: true,
-      });
-      if (result.success) unlock();
+      const result = await promptBiometrics(`Unlock Tiiwa with ${biometricLabel(kind)}`);
+      if (cancelled) return;
+      if (result.success) {
+        unlock();
+        return;
+      }
+      alertBiometricFailure(result.error);
     })();
+
+    return () => {
+      cancelled = true;
+    };
   }, [unlock]);
 
   async function onComplete(pin: string) {
@@ -44,15 +54,13 @@ export default function UnlockScreen() {
   }
 
   async function onBiometrics() {
-    if (!bioReady && !(await isBiometricsEnabled())) {
-      Alert.alert('Face ID is off', 'Turn it on in Settings after you unlock with your PIN.');
+    const result = await promptBiometrics(`Unlock Tiiwa with ${bioLabel}`);
+    if (result.success) {
+      await setBiometricsEnabled(true);
+      unlock();
       return;
     }
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Unlock Tiiwa',
-      disableDeviceFallback: true,
-    });
-    if (result.success) unlock();
+    alertBiometricFailure(result.error);
   }
 
   async function forgot() {
@@ -81,13 +89,14 @@ export default function UnlockScreen() {
       <View style={styles.header}>
         <Text style={styles.kicker}>DEVICE LOCK</Text>
         <Text style={styles.title}>Enter your PIN</Text>
-        <Text style={styles.body}>Works offline. Face ID is optional in Settings.</Text>
+        <Text style={styles.body}>Works offline. {bioLabel} unlocks Tiiwa on this phone.</Text>
       </View>
       <View style={styles.pad}>
         <PinPad
           onComplete={onComplete}
           error={lockedOut ? 'Too many attempts. Wait a moment, then try again.' : error}
           onBiometrics={onBiometrics}
+          biometricsLabel={bioLabel}
           disabled={lockedOut}
           onInput={() => setError(null)}
         />

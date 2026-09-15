@@ -1,15 +1,40 @@
+import { alertBiometricFailure, biometricLabel, canUseBiometrics, getBiometricKind, promptBiometrics } from '@/auth/biometrics';
 import { setBiometricsEnabled, setPin } from '@/auth/pin';
 import { PinPad } from '@/components/PinPad';
 import { Screen } from '@/components/ui';
 import { colors } from '@/theme/colors';
-import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 
 export default function SetPinScreen() {
   const [first, setFirst] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [bioLabel, setBioLabel] = useState('Face ID');
+
+  useEffect(() => {
+    getBiometricKind().then((kind) => setBioLabel(biometricLabel(kind)));
+  }, []);
+
+  async function finish(pin: string) {
+    await setPin(pin);
+    if (await canUseBiometrics()) {
+      Alert.alert(`Unlock with ${bioLabel}?`, `Use ${bioLabel} when you open Tiiwa. You can change this in Settings.`, [
+        { text: 'Not now', onPress: () => router.push('/email') },
+        {
+          text: 'Enable',
+          onPress: async () => {
+            const result = await promptBiometrics(`Enable ${bioLabel} for Tiiwa`);
+            if (result.success) await setBiometricsEnabled(true);
+            else alertBiometricFailure(result.error);
+            router.push('/email');
+          },
+        },
+      ]);
+      return;
+    }
+    router.push('/email');
+  }
 
   async function onComplete(pin: string) {
     if (!first) {
@@ -22,25 +47,16 @@ export default function SetPinScreen() {
       setError('Those PINs did not match. Try again.');
       return;
     }
-    await setPin(pin);
-    router.push('/email');
+    await finish(pin);
   }
 
   async function onBiometrics() {
-    const compatible = await LocalAuthentication.hasHardwareAsync();
-    const enrolled = await LocalAuthentication.isEnrolledAsync();
-    if (!compatible || !enrolled) {
-      Alert.alert(
-        'Face ID unavailable',
-        'Set up Face ID or a fingerprint on this device first. You can turn it on later in Settings.'
-      );
+    const result = await promptBiometrics(`Enable ${bioLabel} for Tiiwa`);
+    if (result.success) {
+      await setBiometricsEnabled(true);
       return;
     }
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: 'Use Face ID with Tiiwa',
-      disableDeviceFallback: true,
-    });
-    if (result.success) await setBiometricsEnabled(true);
+    alertBiometricFailure(result.error);
   }
 
   return (
@@ -58,6 +74,7 @@ export default function SetPinScreen() {
           onComplete={onComplete}
           error={error}
           onBiometrics={onBiometrics}
+          biometricsLabel={bioLabel}
           onInput={() => setError(null)}
         />
       </View>

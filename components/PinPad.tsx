@@ -25,12 +25,14 @@ export function PinPad({
   onComplete,
   error,
   onBiometrics,
+  biometricsLabel = 'Face ID',
   disabled,
   onInput,
 }: {
   onComplete: (pin: string) => void;
   error?: string | null;
   onBiometrics?: () => void;
+  biometricsLabel?: string;
   disabled?: boolean;
   onInput?: () => void;
 }) {
@@ -91,12 +93,12 @@ export function PinPad({
             onPress={biometrics}
             disabled={!onBiometrics}
             style={styles.sideKey}
-            accessibilityLabel="Face ID"
+            accessibilityLabel={biometricsLabel}
           >
             {onBiometrics ? (
               <>
                 <Fingerprint size={26} color={colors.mint} strokeWidth={1.8} />
-                <Text style={styles.bioLabel}>Face ID</Text>
+                <Text style={styles.bioLabel}>{biometricsLabel}</Text>
               </>
             ) : null}
           </Pressable>

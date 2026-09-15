@@ -1,3 +1,4 @@
+import { alertBiometricFailure, biometricLabel, getBiometricKind, promptBiometrics } from '@/auth/biometrics';
 import { useAuth } from '@/auth/AuthProvider';
 import { isBiometricsEnabled, setBiometricsEnabled } from '@/auth/pin';
 import { Screen } from '@/components/ui';
@@ -7,7 +8,6 @@ import { useStore } from '@/lib/store';
 import { toast } from '@/lib/toast';
 import { colors } from '@/theme/colors';
 import { File, Paths } from 'expo-file-system';
-import * as LocalAuthentication from 'expo-local-authentication';
 import * as Sharing from 'expo-sharing';
 import { Download, Fingerprint, Lock, Shield, User } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
@@ -18,12 +18,14 @@ export default function SettingsScreen() {
   const { refresh } = useStore();
   const { email, emailVerified, lock } = useAuth();
   const [bio, setBio] = useState(false);
+  const [bioLabel, setBioLabel] = useState('Face ID');
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState('');
   const [dob, setDob] = useState('');
 
   useEffect(() => {
     isBiometricsEnabled().then(setBio);
+    getBiometricKind().then((kind) => setBioLabel(biometricLabel(kind)));
     if (baby) {
       setName(baby.name);
       setDob(baby.date_of_birth ?? '');
@@ -32,10 +34,9 @@ export default function SettingsScreen() {
 
   async function toggleBio(next: boolean) {
     if (next) {
-      const compatible = await LocalAuthentication.hasHardwareAsync();
-      const enrolled = await LocalAuthentication.isEnrolledAsync();
-      if (!compatible || !enrolled) {
-        Alert.alert('Biometrics unavailable', 'Set up Face ID or a fingerprint on this device first.');
+      const result = await promptBiometrics(`Enable ${bioLabel} for Tiiwa`);
+      if (!result.success) {
+        alertBiometricFailure(result.error);
         return;
       }
     }
@@ -88,7 +89,7 @@ export default function SettingsScreen() {
 
         <View style={styles.row}>
           <Fingerprint size={16} color={colors.inkDim} />
-          <Text style={styles.rowLabel}>Unlock with biometrics</Text>
+          <Text style={styles.rowLabel}>Unlock with {bioLabel}</Text>
           <Switch value={bio} onValueChange={toggleBio} trackColor={{ true: colors.mint }} />
         </View>
 
