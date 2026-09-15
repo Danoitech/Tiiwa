@@ -1,15 +1,16 @@
 import { AuthProvider, useAuth } from '@/auth/AuthProvider';
+import { AnimatedSplash } from '@/components/AnimatedSplash';
 import { ToastHost } from '@/components/ToastHost';
 import { StoreProvider } from '@/lib/store';
 import { colors } from '@/theme/colors';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 try {
-  SplashScreen.setOptions({ fade: true, duration: 400 });
+  SplashScreen.setOptions({ fade: true, duration: 250 });
 } catch {
   // Native-only.
 }
@@ -22,14 +23,22 @@ export const unstable_settings = {
 
 function RootNav() {
   const { status } = useAuth();
+  const [held, setHeld] = useState(false);
 
   useEffect(() => {
-    if (status !== 'loading') {
-      SplashScreen.hideAsync();
-    }
-  }, [status]);
+    SplashScreen.hideAsync().catch(() => {});
+    const t = setTimeout(() => setHeld(true), 1500);
+    return () => clearTimeout(t);
+  }, []);
 
-  if (status === 'loading') return null;
+  if (status === 'loading' || !held) {
+    return (
+      <>
+        <StatusBar style="dark" />
+        <AnimatedSplash />
+      </>
+    );
+  }
 
   return (
     <>
