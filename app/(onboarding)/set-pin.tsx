@@ -1,10 +1,11 @@
+import { setBiometricsEnabled, setPin } from '@/auth/pin';
 import { PinPad } from '@/components/PinPad';
 import { Screen } from '@/components/ui';
-import { setPin } from '@/auth/pin';
 import { colors } from '@/theme/colors';
+import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { StyleSheet, Text } from 'react-native';
+import { Alert, StyleSheet, Text, View } from 'react-native';
 
 export default function SetPinScreen() {
   const [first, setFirst] = useState<string | null>(null);
@@ -25,39 +26,75 @@ export default function SetPinScreen() {
     router.push('/email');
   }
 
+  async function onBiometrics() {
+    const compatible = await LocalAuthentication.hasHardwareAsync();
+    const enrolled = await LocalAuthentication.isEnrolledAsync();
+    if (!compatible || !enrolled) {
+      Alert.alert(
+        'Face ID unavailable',
+        'Set up Face ID or a fingerprint on this device first. You can turn it on later in Settings.'
+      );
+      return;
+    }
+    const result = await LocalAuthentication.authenticateAsync({
+      promptMessage: 'Use Face ID with Tiiwa',
+      disableDeviceFallback: true,
+    });
+    if (result.success) await setBiometricsEnabled(true);
+  }
+
   return (
     <Screen style={styles.wrap}>
-      <Text style={styles.kicker}>Device lock</Text>
-      <Text style={styles.title}>{first ? 'Confirm your PIN' : 'Choose a 4-digit PIN'}</Text>
-      <Text style={styles.body}>
-        This stays on the phone and unlocks Tiiwa when you open it. You will not need email at 4am.
-      </Text>
-      <PinPad onComplete={onComplete} error={error} />
+      <View style={styles.header}>
+        <Text style={styles.kicker}>DEVICE LOCK</Text>
+        <Text style={styles.title}>{first ? 'Confirm your PIN' : 'Choose a 4-digit PIN'}</Text>
+        <Text style={styles.body}>
+          This stays on the phone and unlocks Tiiwa when you open it. You won't need email at 4am.
+        </Text>
+      </View>
+      <View style={styles.pad}>
+        <PinPad
+          key={first ? 'confirm' : 'choose'}
+          onComplete={onComplete}
+          error={error}
+          onBiometrics={onBiometrics}
+          onInput={() => setError(null)}
+        />
+      </View>
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
   wrap: {
-    paddingHorizontal: 24,
-    paddingBottom: 24,
+    paddingHorizontal: 28,
+    paddingBottom: 12,
+  },
+  header: {
+    paddingTop: 20,
   },
   kicker: {
-    fontSize: 12,
+    fontSize: 11,
+    letterSpacing: 1.8,
     color: colors.inkDim,
-    marginTop: 12,
+    fontWeight: '500',
   },
   title: {
-    fontSize: 24,
+    fontSize: 28,
     color: colors.ink,
-    fontWeight: '500',
-    marginTop: 6,
-    marginBottom: 10,
+    fontWeight: '600',
+    marginTop: 10,
+    marginBottom: 12,
   },
   body: {
-    fontSize: 14,
+    fontSize: 15,
     color: colors.inkDim,
-    lineHeight: 20,
-    marginBottom: 28,
+    lineHeight: 22,
+    maxWidth: 320,
+  },
+  pad: {
+    flex: 1,
+    justifyContent: 'center',
+    paddingBottom: 8,
   },
 });

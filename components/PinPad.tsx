@@ -1,78 +1,156 @@
 import { colors } from '@/theme/colors';
 import * as Haptics from 'expo-haptics';
-import { Delete } from 'lucide-react-native';
-import { useState } from 'react';
+import { Fingerprint, X } from 'lucide-react-native';
+import { type ReactNode, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+
+const LETTERS: Record<string, string> = {
+  '2': 'ABC',
+  '3': 'DEF',
+  '4': 'GHI',
+  '5': 'JKL',
+  '6': 'MNO',
+  '7': 'PQRS',
+  '8': 'TUV',
+  '9': 'WXYZ',
+};
+
+const ROWS = [
+  ['1', '2', '3'],
+  ['4', '5', '6'],
+  ['7', '8', '9'],
+];
 
 export function PinPad({
   onComplete,
   error,
+  onBiometrics,
+  disabled,
+  onInput,
 }: {
   onComplete: (pin: string) => void;
   error?: string | null;
+  onBiometrics?: () => void;
+  disabled?: boolean;
+  onInput?: () => void;
 }) {
   const [value, setValue] = useState('');
 
   function press(digit: string) {
-    if (value.length >= 4) return;
+    if (disabled || value.length >= 4) return;
     Haptics.selectionAsync();
+    onInput?.();
     const next = value + digit;
     setValue(next);
     if (next.length === 4) {
       onComplete(next);
-      setTimeout(() => setValue(''), 200);
+      setTimeout(() => setValue(''), 180);
     }
   }
 
   function backspace() {
+    if (disabled) return;
     Haptics.selectionAsync();
     setValue((v) => v.slice(0, -1));
   }
 
-  const keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '', '0', 'del'];
+  function biometrics() {
+    if (disabled || !onBiometrics) return;
+    Haptics.selectionAsync();
+    onBiometrics();
+  }
 
   return (
-    <View>
+    <View style={styles.wrap}>
       <View style={styles.dots}>
         {[0, 1, 2, 3].map((i) => (
-          <View key={i} style={[styles.dot, value.length > i && styles.dotFilled, error ? styles.dotError : null]} />
+          <View
+            key={i}
+            style={[
+              styles.dot,
+              value.length > i && styles.dotFilled,
+              error && value.length > i ? styles.dotError : null,
+            ]}
+          />
         ))}
       </View>
-      {error ? <Text style={styles.error}>{error}</Text> : <View style={{ height: 22 }} />}
+      {error ? <Text style={styles.error}>{error}</Text> : <View style={styles.errorSpacer} />}
       <View style={styles.grid}>
-        {keys.map((key) => {
-          if (key === '') return <View key="empty" style={styles.key} />;
-          if (key === 'del') {
-            return (
-              <Pressable key="del" onPress={backspace} style={styles.key}>
-                <Delete size={22} color={colors.ink} />
-              </Pressable>
-            );
-          }
-          return (
-            <Pressable key={key} onPress={() => press(key)} style={styles.key}>
-              <Text style={styles.keyText}>{key}</Text>
-            </Pressable>
-          );
-        })}
+        {ROWS.map((row) => (
+          <View key={row[0]} style={styles.row}>
+            {row.map((digit) => (
+              <Key key={digit} label={digit} onPress={() => press(digit)}>
+                <Text style={styles.digit}>{digit}</Text>
+                {LETTERS[digit] ? <Text style={styles.letters}>{LETTERS[digit]}</Text> : null}
+              </Key>
+            ))}
+          </View>
+        ))}
+        <View style={styles.row}>
+          <Pressable
+            onPress={biometrics}
+            disabled={!onBiometrics}
+            style={styles.sideKey}
+            accessibilityLabel="Face ID"
+          >
+            {onBiometrics ? (
+              <>
+                <Fingerprint size={26} color={colors.mint} strokeWidth={1.8} />
+                <Text style={styles.bioLabel}>Face ID</Text>
+              </>
+            ) : null}
+          </Pressable>
+          <Key label="0" onPress={() => press('0')}>
+            <Text style={styles.digit}>0</Text>
+          </Key>
+          <Pressable onPress={backspace} style={styles.sideKey} accessibilityLabel="Delete">
+            <View style={styles.deleteGlyph}>
+              <X size={11} color={colors.inkDim} strokeWidth={2.6} />
+            </View>
+          </Pressable>
+        </View>
       </View>
     </View>
   );
 }
 
+function Key({
+  children,
+  onPress,
+  label,
+}: {
+  children: ReactNode;
+  onPress: () => void;
+  label: string;
+}) {
+  return (
+    <Pressable
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => [styles.key, pressed && styles.keyPressed]}
+    >
+      {children}
+    </Pressable>
+  );
+}
+
 const styles = StyleSheet.create({
+  wrap: {
+    alignItems: 'center',
+  },
   dots: {
     flexDirection: 'row',
     justifyContent: 'center',
-    gap: 14,
-    marginBottom: 10,
+    gap: 20,
+    marginBottom: 8,
   },
   dot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 1.5,
-    borderColor: colors.inkDim,
+    borderColor: '#E4E1D8',
+    backgroundColor: 'transparent',
   },
   dotFilled: {
     backgroundColor: colors.ink,
@@ -86,25 +164,68 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     color: colors.danger,
     fontSize: 12,
-    marginBottom: 8,
+    marginBottom: 18,
+    minHeight: 18,
+  },
+  errorSpacer: {
+    height: 36,
   },
   grid: {
+    gap: 16,
+  },
+  row: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     justifyContent: 'center',
-    width: 280,
-    alignSelf: 'center',
+    gap: 18,
   },
   key: {
-    width: 80,
-    height: 64,
+    width: 74,
+    height: 74,
+    borderRadius: 37,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: colors.ink,
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 3,
   },
-  keyText: {
-    fontSize: 24,
+  keyPressed: {
+    opacity: 0.72,
+    transform: [{ scale: 0.97 }],
+  },
+  digit: {
+    fontSize: 26,
     color: colors.ink,
-    fontWeight: '500',
+    fontWeight: '400',
     fontVariant: ['tabular-nums'],
+    lineHeight: 30,
+  },
+  letters: {
+    fontSize: 8,
+    letterSpacing: 1.6,
+    color: colors.inkDim,
+    marginTop: 1,
+  },
+  sideKey: {
+    width: 74,
+    height: 74,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  bioLabel: {
+    fontSize: 10,
+    color: colors.inkDim,
+  },
+  deleteGlyph: {
+    width: 24,
+    height: 18,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: colors.inkDim,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
 });

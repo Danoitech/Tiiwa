@@ -68,7 +68,12 @@ export function OtpScreen() {
       <Screen style={styles.wrap}>
         <Text style={styles.kicker}>New PIN</Text>
         <Text style={styles.title}>{firstPin ? 'Confirm your PIN' : 'Choose a new 4-digit PIN'}</Text>
-        <PinPad onComplete={onNewPin} error={error} />
+        <PinPad
+          key={firstPin ? 'confirm' : 'choose'}
+          onComplete={onNewPin}
+          error={error}
+          onInput={() => setError(null)}
+        />
       </Screen>
     );
   }
