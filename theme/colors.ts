@@ -1,0 +1,16 @@
+export const colors = {
+  ink: '#4A4E51',
+  inkDim: '#8B8F92',
+  bg: '#FAFAF6',
+  card: '#FFFFFF',
+  cardSoft: '#F2EFE7',
+  amber: '#E8A63D',
+  amberDeep: '#FFF1C6',
+  mint: '#2E9C89',
+  mintDeep: '#D9F5EE',
+  peach: '#D9713C',
+  peachDeep: '#FFDBB5',
+  onAccent: '#2E2A27',
+  danger: '#E0685E',
+  divider: 'rgba(74,78,81,0.08)',
+} as const;
