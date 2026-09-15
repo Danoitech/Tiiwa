@@ -7,6 +7,16 @@ export const unstable_settings = {
 
 export default function LockLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.bg } }} />
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.bg },
+        animation: 'fade',
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="recover-email" />
+      <Stack.Screen name="recover" />
+    </Stack>
   );
 }

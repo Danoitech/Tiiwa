@@ -2,18 +2,21 @@ import { useAuth } from '@/auth/AuthProvider';
 import { sendOtp } from '@/auth/otp';
 import { isBiometricsEnabled, verifyPin } from '@/auth/pin';
 import { PinPad } from '@/components/PinPad';
-import { GhostButton, Screen } from '@/components/ui';
+import { Screen } from '@/components/ui';
 import { colors } from '@/theme/colors';
 import * as LocalAuthentication from 'expo-local-authentication';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function UnlockScreen() {
-  const { unlock, email, emailVerified } = useAuth();
+  const insets = useSafeAreaInsets();
+  const { unlock, email } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [fails, setFails] = useState(0);
   const [bioReady, setBioReady] = useState(false);
+  const [recovering, setRecovering] = useState(false);
   const lockedOut = fails >= 5;
 
   useEffect(() => {
@@ -53,15 +56,24 @@ export default function UnlockScreen() {
   }
 
   async function forgot() {
-    if (!email || !emailVerified) {
-      setError('No recovery email is set on this phone.');
-      return;
+    if (recovering) return;
+    setRecovering(true);
+    setError(null);
+    try {
+      if (!email) {
+        router.push('/recover-email');
+        return;
+      }
+      const result = await sendOtp(email, 'recovery');
+      router.push({
+        pathname: '/recover',
+        params: { email, devCode: result.devCode ?? '' },
+      });
+    } catch (e) {
+      Alert.alert('Could not start recovery', e instanceof Error ? e.message : 'Try again in a moment.');
+    } finally {
+      setRecovering(false);
     }
-    const result = await sendOtp(email, 'recovery');
-    router.push({
-      pathname: '/recover',
-      params: { email, purpose: 'recovery', devCode: result.devCode ?? '' },
-    });
   }
 
   return (
@@ -80,7 +92,14 @@ export default function UnlockScreen() {
           onInput={() => setError(null)}
         />
       </View>
-      <GhostButton label="Forgot PIN" onPress={forgot} />
+      <Pressable
+        onPress={forgot}
+        disabled={recovering}
+        hitSlop={12}
+        style={[styles.forgot, { marginBottom: Math.max(insets.bottom, 12) }]}
+      >
+        <Text style={styles.forgotText}>{recovering ? 'Sending code…' : 'Forgot PIN'}</Text>
+      </Pressable>
     </Screen>
   );
 }
@@ -88,7 +107,7 @@ export default function UnlockScreen() {
 const styles = StyleSheet.create({
   wrap: {
     paddingHorizontal: 28,
-    paddingBottom: 12,
+    paddingBottom: 4,
   },
   header: {
     paddingTop: 20,
@@ -115,6 +134,15 @@ const styles = StyleSheet.create({
   pad: {
     flex: 1,
     justifyContent: 'center',
-    paddingBottom: 8,
+    minHeight: 0,
+  },
+  forgot: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  forgotText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: colors.mint,
   },
 });

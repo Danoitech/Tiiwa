@@ -8,12 +8,14 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { StyleSheet, Text, TextInput, View } from 'react-native';
 
-export function OtpScreen() {
-  const { email, purpose, devCode } = useLocalSearchParams<{
-    email: string;
-    purpose: 'onboarding' | 'recovery';
-    devCode?: string;
-  }>();
+function asString(value: string | string[] | undefined) {
+  return (Array.isArray(value) ? value[0] : value) ?? '';
+}
+
+export function OtpScreen({ purpose }: { purpose: 'onboarding' | 'recovery' }) {
+  const params = useLocalSearchParams<{ email?: string; devCode?: string }>();
+  const email = asString(params.email).trim().toLowerCase();
+  const devCode = asString(params.devCode);
   const { completeOnboarding, setEmail, unlock } = useAuth();
   const [code, setCode] = useState('');
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +46,7 @@ export function OtpScreen() {
 
   async function resend() {
     if (!email) return;
-    const result = await sendOtp(email, purpose === 'recovery' ? 'recovery' : 'onboarding');
+    const result = await sendOtp(email, purpose);
     router.setParams({ devCode: result.devCode ?? '' });
   }
 
@@ -61,6 +63,17 @@ export function OtpScreen() {
     }
     await setPin(pin);
     unlock();
+  }
+
+  if (!email) {
+    return (
+      <Screen style={styles.wrap}>
+        <Text style={styles.kicker}>{purpose === 'recovery' ? 'RECOVERY' : 'CHECK YOUR INBOX'}</Text>
+        <Text style={styles.title}>Missing email</Text>
+        <Text style={styles.body}>Go back and try Forgot PIN again.</Text>
+        <GhostButton label="Back" onPress={() => router.back()} />
+      </Screen>
+    );
   }
 
   if (resetMode) {
@@ -102,6 +115,7 @@ export function OtpScreen() {
       {error ? <Text style={styles.error}>{error}</Text> : null}
       <PrimaryButton label={busy ? 'Checking…' : 'Verify'} onPress={confirm} disabled={code.length < 6 || busy} />
       <GhostButton label="Resend code" onPress={resend} />
+      {purpose === 'recovery' ? <GhostButton label="Back to PIN" onPress={() => router.back()} /> : null}
     </Screen>
   );
 }
