@@ -1,16 +1,25 @@
 import { colors } from '@/theme/colors';
 import { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import Svg, { Circle, G, Line, Rect } from 'react-native-svg';
 
 export type WeekPoint = {
+  key: string;
   day: string;
   feeds: number;
   nappies: number;
   sleep: number;
 };
 
-export function WeekChart({ data }: { data: WeekPoint[] }) {
+export function WeekChart({
+  data,
+  selectedKey,
+  onSelect,
+}: {
+  data: WeekPoint[];
+  selectedKey?: string;
+  onSelect?: (key: string) => void;
+}) {
   const [width, setWidth] = useState(0);
   const height = 150;
   const padLeft = 22;
@@ -42,8 +51,19 @@ export function WeekChart({ data }: { data: WeekPoint[] }) {
               const x = padLeft + i * groupW + groupW / 2;
               const feedH = (d.feeds / maxCount) * innerH;
               const nappyH = (d.nappies / maxCount) * innerH;
+              const selected = d.key === selectedKey;
               return (
-                <G key={d.day}>
+                <G key={d.key}>
+                  {selected ? (
+                    <Rect
+                      x={x - groupW / 2 + 4}
+                      y={padTop}
+                      width={Math.max(8, groupW - 8)}
+                      height={innerH}
+                      rx={8}
+                      fill={colors.mintDeep}
+                    />
+                  ) : null}
                   <Rect x={x - 10} y={padTop + innerH - feedH} width={8} height={feedH} rx={4} fill={colors.amber} />
                   <Rect x={x + 2} y={padTop + innerH - nappyH} width={8} height={nappyH} rx={4} fill={colors.peach} />
                 </G>
@@ -56,7 +76,7 @@ export function WeekChart({ data }: { data: WeekPoint[] }) {
               const prevX = padLeft + (i - 1) * groupW + groupW / 2;
               const prevY = prev ? padTop + innerH - (prev.sleep / maxSleep) * innerH : y;
               return (
-                <G key={`s${d.day}`}>
+                <G key={`s${d.key}`}>
                   {prev && <Line x1={prevX} y1={prevY} x2={x} y2={y} stroke={colors.mint} strokeWidth={2} />}
                   <Circle cx={x} cy={y} r={3} fill={colors.mint} />
                 </G>
@@ -64,10 +84,19 @@ export function WeekChart({ data }: { data: WeekPoint[] }) {
             })}
           </Svg>
         )}
+        {width > 0 && onSelect ? (
+          <View style={[styles.hitRow, { left: padLeft, right: padRight }]}>
+            {data.map((d) => (
+              <Pressable key={`hit-${d.key}`} style={styles.hit} onPress={() => onSelect(d.key)} />
+            ))}
+          </View>
+        ) : null}
       </View>
       <View style={styles.days}>
         {data.map((d) => (
-          <Text key={d.day} style={styles.day}>{d.day}</Text>
+          <Pressable key={d.key} onPress={() => onSelect?.(d.key)} style={styles.dayHit} disabled={!onSelect}>
+            <Text style={[styles.day, d.key === selectedKey && styles.daySelected]}>{d.day}</Text>
+          </Pressable>
         ))}
       </View>
       <View style={styles.legend}>
@@ -97,6 +126,13 @@ const styles = StyleSheet.create({
     paddingBottom: 6,
     marginBottom: 14,
   },
+  hitRow: {
+    ...StyleSheet.absoluteFillObject,
+    flexDirection: 'row',
+  },
+  hit: {
+    flex: 1,
+  },
   days: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -104,11 +140,18 @@ const styles = StyleSheet.create({
     marginBottom: 8,
     paddingHorizontal: 18,
   },
+  dayHit: {
+    width: 28,
+    alignItems: 'center',
+  },
   day: {
     fontSize: 10,
     color: colors.inkDim,
-    width: 28,
     textAlign: 'center',
+  },
+  daySelected: {
+    color: colors.mint,
+    fontWeight: '600',
   },
   legend: {
     flexDirection: 'row',

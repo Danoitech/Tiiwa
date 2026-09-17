@@ -1,22 +1,20 @@
-import { Segmented } from '@/components/Segmented';
 import { TimelineRow } from '@/components/TimelineRow';
 import { Screen } from '@/components/ui';
 import { WeekChart, type WeekPoint } from '@/components/WeekChart';
 import { deleteEvent, getEventsForDate, statsFromEvents } from '@/db/queries';
 import { useBaby } from '@/hooks/useBaby';
-import { addDays, dateKey, formatShortDate, startOfDay } from '@/lib/dates';
+import { addDays, dateKey, formatShortDate, parseLocalIso, startOfDay } from '@/lib/dates';
 import { useStore } from '@/lib/store';
 import { colors } from '@/theme/colors';
-import { BarChart3, ChevronLeft, ChevronRight, List } from 'lucide-react-native';
+import { ChevronLeft, ChevronRight } from 'lucide-react-native';
 import { useEffect, useMemo, useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 
 const WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 export default function InsightsScreen() {
   const baby = useBaby();
   const { tick, refresh } = useStore();
-  const [tab, setTab] = useState<'timeline' | 'analytics'>('timeline');
   const [day, setDay] = useState(() => startOfDay(new Date()));
   const [events, setEvents] = useState<Awaited<ReturnType<typeof getEventsForDate>>>([]);
   const [week, setWeek] = useState<WeekPoint[]>([]);
@@ -39,6 +37,7 @@ export default function InsightsScreen() {
         const rows = await getEventsForDate(baby.id, dateKey(d));
         const stats = statsFromEvents(rows);
         points.push({
+          key: dateKey(d),
           day: WEEKDAYS[d.getDay()],
           feeds: stats.feeds,
           nappies: stats.nappies,
@@ -75,58 +74,46 @@ export default function InsightsScreen() {
 
   return (
     <Screen>
-      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <View style={styles.header}>
         <Text style={styles.title}>Insights</Text>
-        <Segmented
-          value={tab}
-          onChange={(v) => setTab(v as 'timeline' | 'analytics')}
-          activeBg={colors.mintDeep}
-          activeColor={colors.mint}
-          options={[
-            { value: 'timeline', label: 'Day', icon: <List size={14} color={tab === 'timeline' ? colors.mint : colors.inkDim} /> },
-            { value: 'analytics', label: 'Trends', icon: <BarChart3 size={14} color={tab === 'analytics' ? colors.mint : colors.inkDim} /> },
-          ]}
+        <Text style={styles.sub}>Last 7 days</Text>
+        <WeekChart
+          data={week}
+          selectedKey={dateKey(day)}
+          onSelect={(key) => setDay(startOfDay(parseLocalIso(`${key}T00:00:00`)))}
         />
-
-        {tab === 'timeline' ? (
-          <View style={{ marginTop: 18 }}>
-            <View style={styles.dateRow}>
-              <Pressable onPress={() => setDay((d) => addDays(d, -1))} hitSlop={12}>
-                <ChevronLeft size={18} color={colors.inkDim} />
-              </Pressable>
-              <Text style={styles.dateLabel}>{formatShortDate(day)}</Text>
-              <Pressable onPress={() => setDay((d) => addDays(d, 1))} hitSlop={12}>
-                <ChevronRight size={18} color={colors.inkDim} />
-              </Pressable>
-            </View>
-            {events.length === 0 ? (
-              <Text style={styles.empty}>No events on this day.</Text>
-            ) : (
-              events.map((event) => (
-                <TimelineRow key={event.id} event={event} onLongPress={() => confirmDelete(event.id)} />
-              ))
-            )}
-            {events.length > 0 ? (
-              <Text style={styles.hint}>Long-press an event to delete it.</Text>
-            ) : null}
-          </View>
-        ) : (
-          <View style={{ marginTop: 18 }}>
-            <Text style={styles.sub}>Last 7 days</Text>
-            <WeekChart data={week} />
-            <View style={styles.avgs}>
-              <Avg value={averages.feeds.toFixed(1)} label="avg feeds" color={colors.amber} />
-              <Avg value={`${averages.sleep.toFixed(1)}h`} label="avg sleep" color={colors.mint} />
-              <Avg value={averages.nappies.toFixed(1)} label="avg nappies" color={colors.peach} />
-            </View>
-            <View style={styles.note}>
-              <Text style={styles.noteText}>
-                These are tracking totals only, not medical advice. Sleep hours are what you logged, not a sleep-quality score.
-              </Text>
-            </View>
-          </View>
+        <View style={styles.avgs}>
+          <Avg value={averages.feeds.toFixed(1)} label="avg feeds" color={colors.amber} />
+          <Avg value={`${averages.sleep.toFixed(1)}h`} label="avg sleep" color={colors.mint} />
+          <Avg value={averages.nappies.toFixed(1)} label="avg nappies" color={colors.peach} />
+        </View>
+        <Text style={styles.noteText}>
+          Tracking totals only, not medical advice. Sleep hours are what you logged.
+        </Text>
+        <View style={styles.dateRow}>
+          <Pressable onPress={() => setDay((d) => addDays(d, -1))} hitSlop={12}>
+            <ChevronLeft size={18} color={colors.inkDim} />
+          </Pressable>
+          <Text style={styles.dateLabel}>{formatShortDate(day)}</Text>
+          <Pressable onPress={() => setDay((d) => addDays(d, 1))} hitSlop={12}>
+            <ChevronRight size={18} color={colors.inkDim} />
+          </Pressable>
+        </View>
+      </View>
+      <FlatList
+        style={styles.log}
+        data={events}
+        keyExtractor={(event) => String(event.id)}
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={styles.logContent}
+        ListEmptyComponent={<Text style={styles.empty}>No events on this day.</Text>}
+        ListFooterComponent={
+          events.length > 0 ? <Text style={styles.hint}>Long-press an event to delete it.</Text> : null
+        }
+        renderItem={({ item }) => (
+          <TimelineRow event={item} onLongPress={() => confirmDelete(item.id)} />
         )}
-      </ScrollView>
+      />
     </Screen>
   );
 }
@@ -141,7 +128,13 @@ function Avg({ value, label, color }: { value: string; label: string; color: str
 }
 
 const styles = StyleSheet.create({
-  content: {
+  header: {
+    paddingHorizontal: 16,
+  },
+  log: {
+    flex: 1,
+  },
+  logContent: {
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
@@ -155,7 +148,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 12,
+    marginTop: 14,
+    marginBottom: 8,
   },
   dateLabel: {
     flex: 1,
@@ -166,7 +160,7 @@ const styles = StyleSheet.create({
   empty: {
     color: colors.inkDim,
     fontSize: 13,
-    marginTop: 20,
+    marginTop: 8,
   },
   hint: {
     fontSize: 11,
@@ -176,12 +170,12 @@ const styles = StyleSheet.create({
   sub: {
     fontSize: 12,
     color: colors.inkDim,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   avgs: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 14,
+    marginBottom: 10,
   },
   avg: {
     flex: 1,
@@ -198,15 +192,9 @@ const styles = StyleSheet.create({
     fontSize: 9,
     color: colors.inkDim,
   },
-  note: {
-    backgroundColor: colors.cardSoft,
-    borderRadius: 14,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-  },
   noteText: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.inkDim,
-    lineHeight: 18,
+    lineHeight: 16,
   },
 });
