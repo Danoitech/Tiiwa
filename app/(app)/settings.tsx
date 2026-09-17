@@ -54,14 +54,18 @@ export default function SettingsScreen() {
 
   async function shareCsv() {
     if (!baby) return;
-    const csv = await exportCsv(baby.id);
-    const file = new File(Paths.cache, 'tiiwa-export.csv');
-    file.create({ overwrite: true });
-    await file.write(csv);
-    if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', UTI: 'public.comma-separated-values-text' });
-    } else {
-      toast('CSV saved on this device');
+    try {
+      const csv = await exportCsv(baby.id);
+      const file = new File(Paths.cache, 'tiiwa-export.csv');
+      file.create({ overwrite: true });
+      await file.write(csv);
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', UTI: 'public.comma-separated-values-text' });
+      } else {
+        toast('CSV saved on this device');
+      }
+    } catch {
+      toast('Could not export CSV');
     }
   }
 
