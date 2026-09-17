@@ -3,13 +3,14 @@ import { useAuth } from '@/auth/AuthProvider';
 import { isBiometricsEnabled, setBiometricsEnabled } from '@/auth/pin';
 import { Screen } from '@/components/ui';
 import { exportCsv, upsertBaby } from '@/db/queries';
+import { seedHistoricalNotes } from '@/db/seed';
 import { useBaby } from '@/hooks/useBaby';
 import { useStore } from '@/lib/store';
 import { toast } from '@/lib/toast';
 import { colors } from '@/theme/colors';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
-import { Download, Fingerprint, Lock, Shield, User } from 'lucide-react-native';
+import { Download, Fingerprint, Lock, Shield, Sparkles, User } from 'lucide-react-native';
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
@@ -52,6 +53,25 @@ export default function SettingsScreen() {
     toast('Profile saved');
   }
 
+  async function loadDemo() {
+    if (!baby) return;
+    Alert.alert(
+      'Load Tiwatayo demo?',
+      'This replaces the log on this phone with a full week of sample feeds, sleep, and nappies.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Load demo',
+          onPress: async () => {
+            await seedHistoricalNotes(baby.id, { force: true });
+            refresh();
+            toast('Tiwatayo demo loaded');
+          },
+        },
+      ]
+    );
+  }
+
   async function shareCsv() {
     if (!baby) return;
     try {
@@ -85,6 +105,11 @@ export default function SettingsScreen() {
             <Pressable onPress={saveProfile}><Text style={styles.link}>Save profile</Text></Pressable>
           </View>
         ) : null}
+
+        <Pressable style={styles.row} onPress={loadDemo}>
+          <Sparkles size={16} color={colors.inkDim} />
+          <Text style={styles.rowLabel}>Load Tiwatayo demo data</Text>
+        </Pressable>
 
         <Pressable style={styles.row} onPress={shareCsv}>
           <Download size={16} color={colors.inkDim} />

@@ -121,6 +121,11 @@ export async function countEvents() {
   return row?.n ?? 0;
 }
 
+export async function clearEventsForBaby(babyId: number) {
+  const db = await getDb();
+  await db.runAsync('DELETE FROM events WHERE baby_id = ?', babyId);
+}
+
 export async function getEventsForDate(babyId: number, key: string) {
   const db = await getDb();
   return db.getAllAsync<EventRow>(

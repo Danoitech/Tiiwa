@@ -11,14 +11,14 @@ import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 export default function WelcomeScreen() {
   const { refresh } = useStore();
   const [step, setStep] = useState(0);
-  const [babyName, setBabyName] = useState('');
+  const [babyName, setBabyName] = useState('Tiwatayo');
   const [saving, setSaving] = useState(false);
 
   async function finish(name: string | null) {
-    const trimmed = name?.trim() || 'Baby';
+    const trimmed = name?.trim() || 'Tiwatayo';
     setSaving(true);
     try {
-      await upsertBaby(trimmed, null);
+      await upsertBaby(trimmed, '2026-03-12');
       refresh();
       router.push('/set-pin');
     } finally {
@@ -78,7 +78,7 @@ export default function WelcomeScreen() {
             <TextInput
               value={babyName}
               onChangeText={setBabyName}
-              placeholder="Baby's name"
+              placeholder="Tiwatayo"
               placeholderTextColor={colors.inkDim}
               style={styles.input}
             />

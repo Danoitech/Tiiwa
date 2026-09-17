@@ -37,6 +37,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setStatus('needs-onboarding');
       return;
     }
+    const baby = await getBaby();
+    if (baby) {
+      await seedHistoricalNotes(baby.id);
+    }
     setStatus((current) => (current === 'ready' ? 'ready' : 'locked'));
   }, []);
 

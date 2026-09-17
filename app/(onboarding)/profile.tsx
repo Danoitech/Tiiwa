@@ -33,7 +33,7 @@ export default function ProfileScreen() {
       <TextInput
         value={name}
         onChangeText={setName}
-        placeholder="Milo"
+        placeholder="Tiwatayo"
         placeholderTextColor={colors.inkDim}
         style={styles.input}
         autoFocus
